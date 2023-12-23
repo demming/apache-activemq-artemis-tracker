@@ -1,0 +1,21 @@
+name: Sync Fork
+
+# Sync fork with the main branch of apache/activemq-artemis with the upstream-mirror branch of this repository.
+# SEE https://github.com/marketplace/actions/fork-sync
+
+on:
+  schedule:
+    - cron: '0 13 ? * Sat'
+  workflow_dispatch: # on button click
+  
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: tgymnich/fork-sync@v1.9.0
+        with:
+          owner: apache
+          name: activemq-artemis
+          base: upstream-mirror
+          head: main
+          pr_title: Fork Sync with Upstream
