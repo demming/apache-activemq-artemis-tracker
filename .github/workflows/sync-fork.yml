@@ -15,7 +15,10 @@ jobs:
       - uses: tgymnich/fork-sync@v1.9.0
         with:
           owner: apache
-          name: activemq-artemis
-          base: upstream-mirror
+          repo: activemq-artemis
           head: main
+          base: upstream-mirror
           pr_title: Fork Sync with Upstream
+          auto_approve: false
+          # auto_merge: false
+          retries: 2
