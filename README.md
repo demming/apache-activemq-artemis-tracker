@@ -9,7 +9,16 @@ Upstream's [official Docker Hub repository][official-dockerhub] does not provide
 - the 64-bit [ARMv8 microarchitectures][armv8], such as the ARM Cortex chipsets, Apple Mac M1, M2, M3 series, Apple's A7-A16 (e.g., Bionic) chipsets, or the Ampere and similar cloud-hosted CPU architectures, or
 - the 32-bit [ARMv7 microarchitectures][armv7] used, e.g., in Raspberry Pi SoCs prior to Raspberry Pi 4.
 
-## Workflow
+## Architecture
+
+Keeping it as a fork is necessary within GitHub, because GitHub Actions triggers can properly be invoked [only on owned repositories][triggers] when included as submodules. The trick is to synchronize and dispatch a change notification to my builder repo. I accomplish it utilizing the fork synchronization feature, automated by Fork Sync. The updates to the upstream repo are external events wrt. my container builder repository. In order to notify the builder, one could 
+
+- either schedule a job in the builder to regularly `fetch` the upstream (pull approach), merge the changes, and run the builder job, or,
+- in a push approach (as taken hereby), fork-sync and push to my container builder repo via a `repository_dispatch` event.
+
+The former approach would defeat the safeguard purpose. The latter is therefore admissible. (If you know a better approach, just give me a note, that would be very welcome.)
+
+## Implementation
 
 The intended workflow is to have GitHub Actions in the dedicated [container-builder repository][builder]
 
@@ -35,7 +44,7 @@ Private patches and experimental changes are tracked in a separate private repos
 
 # Diclaimer
 
-I assume there is some interest in having ARM container images for Artemis. There were some individual efforts to make it available to everyone. For as long as the upstream does not push their own ARM builds, I am trying to help out as well. But the results are intended for my own private purposes only.
+I recognized some interest in having ARM container images for Artemis. There were some individual efforts to make it available to everyone. For as long as the upstream does not push their own ARM builds, I am trying to help out as well. But the results are intended for my own private purposes only.
 
 This is a private effort. No warranty, no responsibility, implicit or explicit, use at your own risk. Do your own due diligence. Applying Apache License on my deltas.
 
@@ -43,6 +52,7 @@ Everything made publicly available here is open-source and presented in the most
 
 
 [official-dockerhub]: https://hub.docker.com/r/apache/activemq-artemis
+[triggers]: https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows
 [arm]: https://en.wikipedia.org/wiki/ARM_architecture_family#Cores
 [armv8]: https://en.wikipedia.org/wiki/AArch64
 [armv7]: https://en.wikipedia.org/wiki/Comparison_of_ARM_processors#ARMv7-A
@@ -64,6 +74,8 @@ Without any change, running the container will provide you with a fancy UI conso
 
 
 ____
+
+# Upstream README Description
 
 What follows is the snapshot of the [README.md](https://github.com/apache/activemq-artemis/blob/main/README.md) from the upstream repository at the time of the change in the present forking repository.
 
