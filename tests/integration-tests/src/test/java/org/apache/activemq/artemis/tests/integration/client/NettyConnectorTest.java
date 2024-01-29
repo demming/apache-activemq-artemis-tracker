@@ -16,7 +16,11 @@
  */
 package org.apache.activemq.artemis.tests.integration.client;
 
+
 import io.netty.bootstrap.Bootstrap;
+import io.netty.channel.ChannelPipeline;
+import java.lang.reflect.Method;
+import java.util.Map;
 import org.apache.activemq.artemis.api.core.TransportConfiguration;
 import org.apache.activemq.artemis.api.core.client.ActiveMQClient;
 import org.apache.activemq.artemis.api.core.client.ServerLocator;
@@ -25,6 +29,7 @@ import org.apache.activemq.artemis.core.remoting.impl.netty.NettyConnector;
 import org.apache.activemq.artemis.core.remoting.impl.netty.TransportConstants;
 import org.apache.activemq.artemis.core.server.ActiveMQServer;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
+import org.apache.activemq.artemis.utils.Wait;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -59,5 +64,37 @@ public class NettyConnectorTest extends ActiveMQTestBase {
 
       factory.close();
       locator.close();
+   }
+
+   @Test
+   public void testConnectionHttpHeaders() throws Exception {
+      TransportConfiguration transport = new TransportConfiguration(NETTY_CONNECTOR_FACTORY);
+      transport.getParams().put(TransportConstants.HTTP_ENABLED_PROP_NAME, true);
+      transport.getParams().put("nettyHttpHeader.accept", "text/html,application/xhtml+xml,application/xml");
+      transport.getParams().put("nettyHttpHeader.Accept-Encoding", "gzip,deflate");
+      transport.getParams().put("nettyHttpHeader.Accept-Language", "en-us,en;q=0.5");
+
+      try (ServerLocator locator = ActiveMQClient.createServerLocatorWithoutHA(transport)) {
+         ClientSessionFactoryImpl factory = (ClientSessionFactoryImpl) locator.createSessionFactory();
+         NettyConnector connector = (NettyConnector) factory.getConnector();
+
+         Bootstrap bootstrap = connector.getBootStrap();
+         ChannelPipeline pipeline = bootstrap.register().channel().pipeline();
+         pipeline.flush();
+         Wait.assertTrue("HttpHandler is null!", () -> pipeline.get(NettyConnector.HttpHandler.class) != null, 500, 25);
+         Object httpHandler = pipeline.get(NettyConnector.HttpHandler.class);
+         Method getHeadersMethod = httpHandler.getClass().getMethod("getHeaders", (Class<?>[]) null);
+         getHeadersMethod.setAccessible(true);
+         Map<String, String> headers = (Map<String, String>) getHeadersMethod.invoke(httpHandler, (Object[]) null);
+         assertEquals(3, headers.size());
+         assertTrue(headers.containsKey("accept"));
+         assertEquals("text/html,application/xhtml+xml,application/xml", headers.get("accept"));
+         assertTrue(headers.containsKey("Accept-Encoding"));
+         assertEquals("gzip,deflate", headers.get("Accept-Encoding"));
+         assertTrue(headers.containsKey("Accept-Language"));
+         assertEquals("en-us,en;q=0.5", headers.get("Accept-Language"));
+         assertFalse(headers.containsKey("test"));
+         factory.close();
+      }
    }
 }

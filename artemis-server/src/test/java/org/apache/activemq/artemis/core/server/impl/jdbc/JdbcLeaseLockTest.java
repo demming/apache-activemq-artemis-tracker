@@ -36,7 +36,7 @@ import org.apache.activemq.artemis.core.server.NodeManager.LockListener;
 import org.apache.activemq.artemis.jdbc.store.drivers.JDBCUtils;
 import org.apache.activemq.artemis.jdbc.store.sql.SQLProvider;
 import org.apache.activemq.artemis.logs.AssertionLoggerHandler;
-import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
+import org.apache.activemq.artemis.tests.util.ServerTestBase;
 import org.apache.activemq.artemis.utils.Wait;
 import org.apache.activemq.artemis.utils.actors.ArtemisExecutor;
 import org.apache.activemq.artemis.utils.actors.OrderedExecutorFactory;
@@ -50,7 +50,7 @@ import org.junit.runners.Parameterized;
 import org.junit.runners.Parameterized.Parameter;
 
 @RunWith(Parameterized.class)
-public class JdbcLeaseLockTest extends ActiveMQTestBase {
+public class JdbcLeaseLockTest extends ServerTestBase {
 
    private JdbcSharedStateManager jdbcSharedStateManager;
    private DatabaseStorageConfiguration dbConf;
@@ -75,7 +75,7 @@ public class JdbcLeaseLockTest extends ActiveMQTestBase {
    private LeaseLock lock(long acquireMillis) {
       try {
          return JdbcSharedStateManager
-            .createLiveLock(
+            .createPrimaryLock(
                UUID.randomUUID().toString(),
                jdbcSharedStateManager.getJdbcConnectionProvider(),
                sqlProvider,
@@ -89,7 +89,7 @@ public class JdbcLeaseLockTest extends ActiveMQTestBase {
    private LeaseLock lock(long acquireMillis, long queryTimeoutMillis) {
       try {
          return JdbcSharedStateManager
-            .createLiveLock(
+            .createPrimaryLock(
                UUID.randomUUID().toString(),
                jdbcSharedStateManager.getJdbcConnectionProvider(),
                sqlProvider,
@@ -407,11 +407,11 @@ public class JdbcLeaseLockTest extends ActiveMQTestBase {
 
       AtomicInteger diff = new AtomicInteger(0);
 
-      JdbcLeaseLock hackLock = new JdbcLeaseLock("SomeID", jdbcSharedStateManager.getJdbcConnectionProvider(), sqlProvider.tryAcquireLiveLockSQL(),
-                               sqlProvider.tryReleaseLiveLockSQL(), sqlProvider.renewLiveLockSQL(),
-                               sqlProvider.isLiveLockedSQL(), sqlProvider.currentTimestampSQL(),
-                               sqlProvider.currentTimestampTimeZoneId(), -1, 1000,
-                               "LIVE", 1000) {
+      JdbcLeaseLock hackLock = new JdbcLeaseLock("SomeID", jdbcSharedStateManager.getJdbcConnectionProvider(), sqlProvider.tryAcquirePrimaryLockSQL(),
+                                                 sqlProvider.tryReleasePrimaryLockSQL(), sqlProvider.renewPrimaryLockSQL(),
+                                                 sqlProvider.isPrimaryLockedSQL(), sqlProvider.currentTimestampSQL(),
+                                                 sqlProvider.currentTimestampTimeZoneId(), -1, 1000,
+                                                 "PRIMARY", 1000) {
          @Override
          protected long fetchDatabaseTime(Connection connection) throws SQLException {
             return System.currentTimeMillis() + diff.get();

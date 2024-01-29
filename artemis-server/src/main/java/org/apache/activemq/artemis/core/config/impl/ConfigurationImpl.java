@@ -423,6 +423,8 @@ public class ConfigurationImpl implements Configuration, Serializable {
 
    private long mqttSessionScanInterval = ActiveMQDefaultConfiguration.getMqttSessionScanInterval();
 
+   private long mqttSessionStatePersistenceTimeout = ActiveMQDefaultConfiguration.getMqttSessionStatePersistenceTimeout();
+
    private boolean suppressSessionNotifications = ActiveMQDefaultConfiguration.getDefaultSuppressSessionNotifications();
 
    private String literalMatchMarkers = ActiveMQDefaultConfiguration.getLiteralMatchMarkers();
@@ -614,6 +616,31 @@ public class ConfigurationImpl implements Configuration, Serializable {
    public void populateWithProperties(final Object target, final String propsId, Map<String, Object> beanProperties) throws InvocationTargetException, IllegalAccessException {
       CollectionAutoFillPropertiesUtil autoFillCollections = new CollectionAutoFillPropertiesUtil(getBrokerPropertiesRemoveValue(beanProperties));
       BeanUtilsBean beanUtils = new BeanUtilsBean(new ConvertUtilsBean(), autoFillCollections) {
+
+         // initialize the given property of the given bean with a new instance of the property class
+         private Object initProperty(Object bean, String name) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
+            PropertyDescriptor descriptor = getPropertyUtils().getPropertyDescriptor(bean, name);
+            if (descriptor == null) {
+               throw new InvocationTargetException(null, "No accessor method descriptor for: " + name + " on: " + bean.getClass());
+            }
+
+            Method writeMethod = descriptor.getWriteMethod();
+            if (writeMethod == null) {
+               throw new InvocationTargetException(null, "No Write method for: " + name + " on: " + bean.getClass());
+            }
+
+            Object propertyInstance;
+            try {
+               propertyInstance = descriptor.getPropertyType().getDeclaredConstructor().newInstance();
+            } catch (InstantiationException e) {
+               throw new InvocationTargetException(e);
+            }
+
+            writeMethod.invoke(bean, propertyInstance);
+
+            return propertyInstance;
+         }
+
          // override to treat missing properties as errors, not skip as the default impl does
          @Override
          public void setProperty(final Object bean, String name, final Object value) throws InvocationTargetException, IllegalAccessException {
@@ -626,10 +653,12 @@ public class ConfigurationImpl implements Configuration, Serializable {
                final Resolver resolver = getPropertyUtils().getResolver();
                while (resolver.hasNested(name)) {
                   try {
-                     target = getPropertyUtils().getProperty(target, resolver.next(name));
-                     if (target == null) {
-                        throw new InvocationTargetException(null, "Resolved nested property for:" + name + ", on: " + bean + " was null");
+                     String nextName = resolver.next(name);
+                     Object nextTarget = getPropertyUtils().getProperty(target, nextName);
+                     if (nextTarget == null) {
+                        nextTarget = initProperty(target, nextName);
                      }
+                     target = nextTarget;
                      name = resolver.remove(name);
                   } catch (final NoSuchMethodException e) {
                      throw new InvocationTargetException(e, "No getter for property:" + name + ", on: " + bean);
@@ -1291,6 +1320,19 @@ public class ConfigurationImpl implements Configuration, Serializable {
 
    public List<AMQPBrokerConnectConfiguration> getAMQPConnections() {
       return this.amqpBrokerConnectConfigurations;
+   }
+
+   @Override
+   public Configuration setAMQPConnectionConfigurations(List<AMQPBrokerConnectConfiguration> amqpConnectionConfiugrations) {
+      this.amqpBrokerConnectConfigurations.clear();
+      this.amqpBrokerConnectConfigurations.addAll(amqpConnectionConfiugrations);
+      return this;
+   }
+
+   @Override
+   public Configuration clearAMQPConnectionConfigurations() {
+      this.amqpBrokerConnectConfigurations.clear();
+      return this;
    }
 
    @Override
@@ -2339,17 +2381,17 @@ public class ConfigurationImpl implements Configuration, Serializable {
       this.artemisInstance = directory;
    }
 
-   public boolean isCheckForLiveServer() {
+   public boolean isCheckForPrimaryServer() {
       if (haPolicyConfiguration instanceof ReplicaPolicyConfiguration) {
-         return ((ReplicatedPolicyConfiguration) haPolicyConfiguration).isCheckForLiveServer();
+         return ((ReplicatedPolicyConfiguration) haPolicyConfiguration).isCheckForActiveServer();
       } else {
          return false;
       }
    }
 
-   public ConfigurationImpl setCheckForLiveServer(boolean checkForLiveServer) {
+   public ConfigurationImpl setCheckForPrimaryServer(boolean checkForPrimaryServer) {
       if (haPolicyConfiguration instanceof ReplicaPolicyConfiguration) {
-         ((ReplicatedPolicyConfiguration) haPolicyConfiguration).setCheckForLiveServer(checkForLiveServer);
+         ((ReplicatedPolicyConfiguration) haPolicyConfiguration).setCheckForActiveServer(checkForPrimaryServer);
       }
 
       return this;
@@ -3173,6 +3215,17 @@ public class ConfigurationImpl implements Configuration, Serializable {
    @Override
    public Configuration setMqttSessionScanInterval(long mqttSessionScanInterval) {
       this.mqttSessionScanInterval = mqttSessionScanInterval;
+      return this;
+   }
+
+   @Override
+   public long getMqttSessionStatePersistenceTimeout() {
+      return mqttSessionStatePersistenceTimeout;
+   }
+
+   @Override
+   public Configuration setMqttSessionStatePersistenceTimeout(long mqttSessionStatePersistenceTimeout) {
+      this.mqttSessionStatePersistenceTimeout = mqttSessionStatePersistenceTimeout;
       return this;
    }
 

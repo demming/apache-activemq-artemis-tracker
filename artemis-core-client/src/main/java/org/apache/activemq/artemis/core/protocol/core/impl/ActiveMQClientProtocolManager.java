@@ -422,8 +422,8 @@ public class ActiveMQClientProtocolManager implements ClientProtocolManager {
    }
 
    @Override
-   public boolean checkForFailover(String liveNodeID) throws ActiveMQException {
-      CheckFailoverMessage packet = new CheckFailoverMessage(liveNodeID);
+   public boolean checkForFailover(String nodeID) throws ActiveMQException {
+      CheckFailoverMessage packet = new CheckFailoverMessage(nodeID);
       CheckFailoverReplyMessage message = (CheckFailoverReplyMessage) getChannel1().sendBlocking(packet, PacketImpl.CHECK_FOR_FAILOVER_REPLY);
       return message.isOkToFailover();
    }
@@ -532,7 +532,7 @@ public class ActiveMQClientProtocolManager implements ClientProtocolManager {
             logger.debug("Notifying {} going down", topMessage.getNodeID());
 
             if (topologyResponseHandler != null) {
-               topologyResponseHandler.notifyNodeDown(eventUID, topMessage.getNodeID());
+               topologyResponseHandler.notifyNodeDown(eventUID, topMessage.getNodeID(), topMessage.isExit());
             }
          } else {
             Pair<TransportConfiguration, TransportConfiguration> transportConfig = topMessage.getPair();

@@ -586,15 +586,15 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          manager = new InVMNodeManager(replicatingBackup);
       } else if (configuration.getStoreConfiguration() != null && configuration.getStoreConfiguration().getStoreType() == StoreConfiguration.StoreType.DATABASE) {
          final HAPolicyConfiguration.TYPE haType = configuration.getHAPolicyConfiguration() == null ? null : configuration.getHAPolicyConfiguration().getType();
-         if (haType == HAPolicyConfiguration.TYPE.SHARED_STORE_MASTER || haType == HAPolicyConfiguration.TYPE.SHARED_STORE_SLAVE) {
+         if (haType == HAPolicyConfiguration.TYPE.SHARED_STORE_PRIMARY || haType == HAPolicyConfiguration.TYPE.SHARED_STORE_BACKUP) {
             if (replicatingBackup) {
                throw new IllegalArgumentException("replicatingBackup is not supported yet while using JDBC persistence");
             }
             final DatabaseStorageConfiguration dbConf = (DatabaseStorageConfiguration) configuration.getStoreConfiguration();
             manager = JdbcNodeManager.with(dbConf, scheduledPool, executorFactory);
-         } else if (haType == null || haType == HAPolicyConfiguration.TYPE.LIVE_ONLY) {
+         } else if (haType == null || haType == HAPolicyConfiguration.TYPE.PRIMARY_ONLY) {
             logger.debug("Detected no Shared Store HA options on JDBC store");
-            //LIVE_ONLY should be the default HA option when HA isn't configured
+            //PRIMARY_ONLY should be the default HA option when HA isn't configured
             manager = new FileLockNodeManager(directory, replicatingBackup, configuration.getJournalLockAcquisitionTimeout(), scheduledPool);
          } else {
             throw new IllegalArgumentException("JDBC persistence allows only Shared Store HA options");
@@ -707,9 +707,9 @@ public class ActiveMQServerImpl implements ActiveMQServer {
             throw e;
          }
 
-         ActiveMQServerLogger.LOGGER.serverStarting((haPolicy.isBackup() ? "backup" : "live"), configuration);
+         ActiveMQServerLogger.LOGGER.serverStarting((haPolicy.isBackup() ? "backup" : "primary"), configuration);
 
-         final boolean wasLive = !haPolicy.isBackup();
+         final boolean wasPrimary = !haPolicy.isBackup();
          if (!haPolicy.isBackup()) {
             activation = haPolicy.createActivation(this, false, activationParams, ioCriticalErrorListener);
 
@@ -738,7 +738,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
             if (haPolicy.isSharedStore()) {
                activation = haPolicy.createActivation(this, false, activationParams, ioCriticalErrorListener);
             } else {
-               activation = haPolicy.createActivation(this, wasLive, activationParams, ioCriticalErrorListener);
+               activation = haPolicy.createActivation(this, wasPrimary, activationParams, ioCriticalErrorListener);
             }
 
             if (afterActivationCreated != null) {
@@ -1194,10 +1194,14 @@ public class ActiveMQServerImpl implements ActiveMQServer {
    }
 
    @Override
+   public void unregisterBrokerConnection(BrokerConnection brokerConnection) {
+      brokerConnectionMap.remove(brokerConnection.getName());
+   }
+
+   @Override
    public void startBrokerConnection(String name) throws Exception {
       BrokerConnection connection = getBrokerConnection(name);
       connection.start();
-
    }
 
    protected BrokerConnection getBrokerConnection(String name) {
@@ -1289,7 +1293,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
          if (failoverOnServerShutdown) {
             final Activation activation = this.activation;
             if (activation != null) {
-               activation.sendLiveIsStopping();
+               activation.sendPrimaryIsStopping();
             }
          }
 
@@ -1539,7 +1543,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
       }
    }
 
-   public boolean checkLiveIsNotColocated(String nodeId) {
+   public boolean checkBrokerIsNotColocated(String nodeId) {
       if (parentServer == null) {
          return true;
       } else {
@@ -3604,6 +3608,14 @@ public class ActiveMQServerImpl implements ActiveMQServer {
       }
    }
 
+   private void updateProtocolServices() throws Exception {
+      remotingService.updateProtocolServices(protocolServices);
+
+      for (ProtocolManagerFactory protocolManagerFactory : protocolManagerFactories) {
+         protocolManagerFactory.updateProtocolServices(this, protocolServices);
+      }
+   }
+
    /**
     * This method exists for a possibility of test cases replacing the FileStoreMonitor for an extension that would for instance pretend a disk full on certain tests.
     */
@@ -3942,6 +3954,12 @@ public class ActiveMQServerImpl implements ActiveMQServer {
       ActiveMQServerLogger.LOGGER.autoRemoveAddress(String.valueOf(address));
 
       removeAddressInfo(address, auth);
+   }
+
+   /** Register a queue on the management registry */
+   @Override
+   public void registerQueueOnManagement(Queue queue, boolean registerInternal) throws Exception {
+      managementService.registerQueue(queue, queue.getAddress(), storageManager, registerInternal);
    }
 
    @Override
@@ -4624,6 +4642,7 @@ public class ActiveMQServerImpl implements ActiveMQServer {
       configuration.setQueueConfigs(config.getQueueConfigs());
       configuration.setBridgeConfigurations(config.getBridgeConfigurations());
       configuration.setConnectorConfigurations(config.getConnectorConfigurations());
+      configuration.setAMQPConnectionConfigurations(config.getAMQPConnection());
       configurationReloadDeployed.set(false);
       if (isActive()) {
          configuration.parseProperties(propertiesFileUrl);
@@ -4750,12 +4769,13 @@ public class ActiveMQServerImpl implements ActiveMQServer {
                   destroyBridge(existingBridgeName);
                }
             }
-
          }
 
          recoverStoredBridges();
          recoverStoredConnectors();
 
+         ActiveMQServerLogger.LOGGER.reloadingConfiguration("protocol services");
+         updateProtocolServices();
       }
    }
 

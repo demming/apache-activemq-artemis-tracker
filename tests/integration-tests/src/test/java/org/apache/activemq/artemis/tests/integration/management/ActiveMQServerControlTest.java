@@ -77,6 +77,7 @@ import org.apache.activemq.artemis.core.client.impl.ClientSessionImpl;
 import org.apache.activemq.artemis.core.config.BridgeConfiguration;
 import org.apache.activemq.artemis.core.config.ClusterConnectionConfiguration;
 import org.apache.activemq.artemis.core.config.Configuration;
+import org.apache.activemq.artemis.core.config.brokerConnectivity.BrokerConnectConfiguration;
 import org.apache.activemq.artemis.core.config.impl.SecurityConfiguration;
 import org.apache.activemq.artemis.core.management.impl.view.ConsumerField;
 import org.apache.activemq.artemis.core.management.impl.view.ProducerField;
@@ -1898,7 +1899,7 @@ public class ActiveMQServerControlTest extends ManagementTestBase {
                                  ActiveMQClient.DEFAULT_RETRY_INTERVAL, ActiveMQClient.DEFAULT_RETRY_INTERVAL_MULTIPLIER, ActiveMQClient.INITIAL_CONNECT_ATTEMPTS, ActiveMQClient.DEFAULT_RECONNECT_ATTEMPTS, false, // duplicateDetection
                                  1, // confirmationWindowSize
                                  -1, // producerWindowSize
-                                 ActiveMQClient.DEFAULT_CLIENT_FAILURE_CHECK_PERIOD, connectorConfig.getName(), // liveConnector
+                                 ActiveMQClient.DEFAULT_CLIENT_FAILURE_CHECK_PERIOD, connectorConfig.getName(), // primaryConnector
                                  false, false, null, null);
 
       checkResource(ObjectNameBuilder.DEFAULT.getBridgeObjectName(name));
@@ -5922,6 +5923,11 @@ public class ActiveMQServerControlTest extends ManagementTestBase {
          @Override
          public boolean isStarted() {
             return started;
+         }
+
+         @Override
+         public BrokerConnectConfiguration getConfiguration() {
+            return null;
          }
       }
       Fake fake = new Fake("fake" + UUIDGenerator.getInstance().generateStringUUID());

@@ -151,7 +151,8 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
     *  the actual connection will come from the amqpConnection configuration*/
    int port;
 
-   public AMQPBrokerConnection(AMQPBrokerConnectionManager bridgeManager, AMQPBrokerConnectConfiguration brokerConnectConfiguration,
+   public AMQPBrokerConnection(AMQPBrokerConnectionManager bridgeManager,
+                               AMQPBrokerConnectConfiguration brokerConnectConfiguration,
                                ProtonProtocolManager protonProtocolManager,
                                ActiveMQServer server,
                                NettyConnector bridgesConnector) {
@@ -172,6 +173,11 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
    @Override
    public String getProtocol() {
       return "AMQP";
+   }
+
+   @Override
+   public AMQPBrokerConnectConfiguration getConfiguration() {
+      return brokerConnectConfiguration;
    }
 
    @Override
@@ -499,6 +505,12 @@ public class AMQPBrokerConnection implements ClientConnectionLifeCycleListener, 
 
       if (mirrorControlQueue == null) {
          mirrorControlQueue = server.createQueue(new QueueConfiguration(getMirrorSNF(replicaConfig)).setAddress(getMirrorSNF(replicaConfig)).setRoutingType(RoutingType.ANYCAST).setDurable(replicaConfig.isDurable()).setInternal(true), true);
+      }
+
+      try {
+         server.registerQueueOnManagement(mirrorControlQueue, true);
+      } catch (Throwable ignored) {
+         logger.debug(ignored.getMessage(), ignored);
       }
 
       logger.debug("Mirror queue {}", mirrorControlQueue.getName());

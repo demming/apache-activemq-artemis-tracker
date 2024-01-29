@@ -52,7 +52,8 @@ import org.apache.activemq.artemis.core.config.amqpBrokerConnectivity.AMQPMirror
 import org.apache.activemq.artemis.core.config.federation.FederationAddressPolicyConfiguration;
 import org.apache.activemq.artemis.core.config.federation.FederationPolicySet;
 import org.apache.activemq.artemis.core.config.federation.FederationQueuePolicyConfiguration;
-import org.apache.activemq.artemis.core.config.ha.LiveOnlyPolicyConfiguration;
+import org.apache.activemq.artemis.core.config.ha.PrimaryOnlyPolicyConfiguration;
+import org.apache.activemq.artemis.core.config.routing.ConnectionRouterConfiguration;
 import org.apache.activemq.artemis.core.config.storage.DatabaseStorageConfiguration;
 import org.apache.activemq.artemis.core.deployers.impl.FileConfigurationParser;
 import org.apache.activemq.artemis.core.io.SequentialFileFactory;
@@ -68,12 +69,13 @@ import org.apache.activemq.artemis.core.server.cluster.impl.MessageLoadBalancing
 import org.apache.activemq.artemis.core.server.plugin.impl.LoggingActiveMQServerPlugin;
 import org.apache.activemq.artemis.core.server.routing.KeyType;
 import org.apache.activemq.artemis.core.server.routing.policies.ConsistentHashModuloPolicy;
+import org.apache.activemq.artemis.core.server.routing.policies.ConsistentHashPolicy;
 import org.apache.activemq.artemis.core.settings.impl.AddressFullMessagePolicy;
 import org.apache.activemq.artemis.core.settings.impl.DeletionPolicy;
 import org.apache.activemq.artemis.core.settings.impl.ResourceLimitSettings;
 import org.apache.activemq.artemis.logs.AssertionLoggerHandler;
 import org.apache.activemq.artemis.core.settings.impl.SlowConsumerThresholdMeasurementUnit;
-import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
+import org.apache.activemq.artemis.tests.util.ServerTestBase;
 import org.apache.activemq.artemis.utils.RandomUtil;
 import org.apache.activemq.artemis.utils.critical.CriticalAnalyzerPolicy;
 import org.apache.commons.lang3.ClassUtils;
@@ -86,7 +88,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
 
-public class ConfigurationImplTest extends ActiveMQTestBase {
+public class ConfigurationImplTest extends ServerTestBase {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
@@ -358,7 +360,7 @@ public class ConfigurationImplTest extends ActiveMQTestBase {
    public void testSerialize() throws Exception {
       boolean b = RandomUtil.randomBoolean();
 
-      conf.setHAPolicyConfiguration(new LiveOnlyPolicyConfiguration());
+      conf.setHAPolicyConfiguration(new PrimaryOnlyPolicyConfiguration());
 
       int i = RandomUtil.randomInt();
       conf.setScheduledThreadPoolMaxSize(i);
@@ -719,11 +721,42 @@ public class ConfigurationImplTest extends ActiveMQTestBase {
       insertionOrderedProperties.put("connectionRouters.autoShard.policyConfiguration", ConsistentHashModuloPolicy.NAME);
       insertionOrderedProperties.put("connectionRouters.autoShard.policyConfiguration.properties." + ConsistentHashModuloPolicy.MODULO, 2);
 
+      insertionOrderedProperties.put("connectionRouters.symmetricRedirect.keyType", KeyType.CLIENT_ID);
+      insertionOrderedProperties.put("connectionRouters.symmetricRedirect.keyFilter", "^.{3}");
+      insertionOrderedProperties.put("connectionRouters.symmetricRedirect.policyConfiguration", ConsistentHashPolicy.NAME);
+      insertionOrderedProperties.put("connectionRouters.symmetricRedirect.poolConfiguration.username", "guest-username");
+      insertionOrderedProperties.put("connectionRouters.symmetricRedirect.poolConfiguration.password", "guest-password");
+      insertionOrderedProperties.put("connectionRouters.symmetricRedirect.poolConfiguration.quorumSize", "2");
+      insertionOrderedProperties.put("connectionRouters.symmetricRedirect.poolConfiguration.localTargetEnabled", Boolean.TRUE.toString());
+      insertionOrderedProperties.put("connectionRouters.symmetricRedirect.poolConfiguration.discoveryGroupName", "discovery-group-1");
+      insertionOrderedProperties.put("connectionRouters.symmetricRedirect.cacheConfiguration.persisted", Boolean.TRUE.toString());
+      insertionOrderedProperties.put("connectionRouters.symmetricRedirect.cacheConfiguration.timeout", "1234");
+
       configuration.parsePrefixedProperties(insertionOrderedProperties, null);
 
-      Assert.assertEquals(1, configuration.getConnectionRouters().size());
-      Assert.assertEquals(KeyType.CLIENT_ID, configuration.getConnectionRouters().get(0).getKeyType());
-      Assert.assertEquals("2", configuration.getConnectionRouters().get(0).getPolicyConfiguration().getProperties().get(ConsistentHashModuloPolicy.MODULO));
+      Assert.assertEquals(2, configuration.getConnectionRouters().size());
+
+      ConnectionRouterConfiguration autoShardConfig =  configuration.getConnectionRouters().stream().filter(
+         connectionRouterConfig -> "autoShard".equals(connectionRouterConfig.getName())).findFirst().get();
+      Assert.assertEquals(KeyType.CLIENT_ID, autoShardConfig.getKeyType());
+      Assert.assertEquals("2", autoShardConfig.getPolicyConfiguration().getProperties().get(ConsistentHashModuloPolicy.MODULO));
+      Assert.assertNull(autoShardConfig.getCacheConfiguration());
+      Assert.assertNull(autoShardConfig.getPoolConfiguration());
+
+      ConnectionRouterConfiguration symmetricRedirectConfig =  configuration.getConnectionRouters().stream().filter(
+         connectionRouterConfig -> "symmetricRedirect".equals(connectionRouterConfig.getName())).findFirst().get();
+      Assert.assertEquals(KeyType.CLIENT_ID, symmetricRedirectConfig.getKeyType());
+      Assert.assertEquals("^.{3}", symmetricRedirectConfig.getKeyFilter());
+      Assert.assertEquals(ConsistentHashPolicy.NAME, symmetricRedirectConfig.getPolicyConfiguration().getName());
+      Assert.assertNotNull(symmetricRedirectConfig.getPoolConfiguration());
+      Assert.assertEquals("guest-username", symmetricRedirectConfig.getPoolConfiguration().getUsername());
+      Assert.assertEquals("guest-password", symmetricRedirectConfig.getPoolConfiguration().getPassword());
+      Assert.assertEquals(2, symmetricRedirectConfig.getPoolConfiguration().getQuorumSize());
+      Assert.assertEquals(Boolean.TRUE, symmetricRedirectConfig.getPoolConfiguration().isLocalTargetEnabled());
+      Assert.assertEquals("discovery-group-1", symmetricRedirectConfig.getPoolConfiguration().getDiscoveryGroupName());
+      Assert.assertNotNull(symmetricRedirectConfig.getCacheConfiguration());
+      Assert.assertEquals(Boolean.TRUE, symmetricRedirectConfig.getCacheConfiguration().isPersisted());
+      Assert.assertEquals(1234, symmetricRedirectConfig.getCacheConfiguration().getTimeout());
    }
 
    @Test
@@ -2203,6 +2236,48 @@ public class ConfigurationImplTest extends ActiveMQTestBase {
 
       Assert.assertEquals(1234, configuration.getFileDeployerScanPeriod());
       Assert.assertEquals(4321, configuration.getGlobalMaxSize());
+   }
+
+   @Test
+   public void testConfigWithMultipleNullDescendantChildren() throws Throwable {
+      String dummyPropertyPrefix = "dummy.";
+      DummyConfig dummyConfig = new DummyConfig();
+
+      Properties properties = new Properties();
+      properties.put(dummyPropertyPrefix + "childConfig.childConfig.childConfig.intProperty", "1");
+
+      Configuration configuration = new ConfigurationImpl();
+      configuration.parsePrefixedProperties(dummyConfig, "dummy", properties, dummyPropertyPrefix);
+
+      Assert.assertNotNull(dummyConfig.getChildConfig());
+      Assert.assertNotNull(dummyConfig.getChildConfig().getChildConfig());
+      Assert.assertNotNull(dummyConfig.getChildConfig().getChildConfig().getChildConfig());
+      Assert.assertNull(dummyConfig.getChildConfig().getChildConfig().getChildConfig().getChildConfig());
+      Assert.assertEquals(1, dummyConfig.getChildConfig().getChildConfig().getChildConfig().getIntProperty());
+   }
+
+   public static class DummyConfig {
+      private int intProperty;
+
+      private DummyConfig childConfig;
+
+      public int getIntProperty() {
+         return intProperty;
+      }
+
+      public DummyConfig setIntProperty(int intProperty) {
+         this.intProperty = intProperty;
+         return this;
+      }
+
+      public DummyConfig getChildConfig() {
+         return childConfig;
+      }
+
+      public DummyConfig setChildConfig(DummyConfig childConfig) {
+         this.childConfig = childConfig;
+         return this;
+      }
    }
 
    @Override

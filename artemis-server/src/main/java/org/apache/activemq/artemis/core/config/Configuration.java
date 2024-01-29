@@ -343,7 +343,7 @@ public interface Configuration {
 
    /**
     * Returns the connection time to live. <br>
-    * This value overrides the connection time to live <em>sent by the client</em>. <br>
+    * This value overrides the connection time-to-live <em>sent by the client</em>. <br>
     * Default value is {@link org.apache.activemq.artemis.api.config.ActiveMQDefaultConfiguration#DEFAULT_CONNECTION_TTL_OVERRIDE}.
     */
    long getConnectionTTLOverride();
@@ -397,7 +397,7 @@ public interface Configuration {
     * @param uri  the URI of the acceptor
     * @return this
     * @throws Exception in case of Parsing errors on the URI
-    * @see <a href="https://github.com/apache/activemq-artemis/blob/master/docs/user-manual/en/configuring-transports.md">Configuring the Transport</a>
+    * @see <a href="https://github.com/apache/activemq-artemis/blob/main/docs/user-manual/en/configuring-transports.md">Configuring the Transport</a>
     */
    Configuration addAcceptorConfiguration(String name, String uri) throws Exception;
 
@@ -510,6 +510,24 @@ public interface Configuration {
    Configuration addAMQPConnection(AMQPBrokerConnectConfiguration amqpBrokerConnectConfiguration);
 
    List<AMQPBrokerConnectConfiguration> getAMQPConnection();
+
+   /**
+    * Quick set of all AMQP connection configurations in one call which will clear all
+    * previously set or added broker configurations.
+    *
+    * @param amqpConnectionConfiugrations
+    *    A list of AMQP broker connection configurations to assign to the broker.
+    *
+    * @return this configuration object.
+    */
+   Configuration setAMQPConnectionConfigurations(List<AMQPBrokerConnectConfiguration> amqpConnectionConfiugrations);
+
+   /**
+    * Clears the current configuration object of all set or added AMQP connection configuration elements.
+    *
+    * @return this configuration object.
+    */
+   Configuration clearAMQPConnectionConfigurations();
 
    /**
     * Returns the queues configured for this server.
@@ -1427,8 +1445,8 @@ public interface Configuration {
    Configuration setTemporaryQueueNamespace(String temporaryQueueNamespace);
 
    /**
-    * This is specific to MQTT, and it's necessary because the session scan interval is a broker-wide setting and can't
-    * be set on a per-connector basis like the rest of the MQTT-specific settings.
+    * This is necessary because the MQTT session scan interval is a broker-wide setting and can't be set on a
+    * per-connector basis like most of the other MQTT-specific settings.
     */
    Configuration setMqttSessionScanInterval(long mqttSessionScanInterval);
 
@@ -1438,6 +1456,19 @@ public interface Configuration {
     * @return
     */
    long getMqttSessionScanInterval();
+
+   /**
+    * This is necessary because MQTT sessions and handled on a broker-wide basis so this can't be set on a per-connector
+    * basis like most of the other MQTT-specific settings.
+    */
+   Configuration setMqttSessionStatePersistenceTimeout(long mqttSessionStatePersistenceTimeout);
+
+   /**
+    * @see Configuration#setMqttSessionStatePersistenceTimeout(long)
+    *
+    * @return
+    */
+   long getMqttSessionStatePersistenceTimeout();
 
    /**
     * Returns whether suppression of session-notifications is enabled for this server. <br>

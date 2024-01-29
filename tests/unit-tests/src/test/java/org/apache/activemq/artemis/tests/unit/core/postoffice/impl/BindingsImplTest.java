@@ -138,7 +138,22 @@ public class BindingsImplTest extends ActiveMQTestBase {
       }
 
       @Override
+      public boolean isAsync() {
+         return false;
+      }
+
+      @Override
+      public Transaction setAsync(boolean async) {
+         return null;
+      }
+
+      @Override
       public void setProtocolData(Object data) {
+
+      }
+
+      @Override
+      public void afterWired(Runnable runnable) {
 
       }
 
@@ -497,6 +512,10 @@ public class BindingsImplTest extends ActiveMQTestBase {
       @Override
       public long getRemoteQueueID() {
          return 0;
+      }
+
+      @Override
+      public void setFilter(Filter filter) {
       }
 
       @Override

@@ -12,14 +12,38 @@ NOTE: If the upgrade spans multiple versions then the steps from *each* version 
 
 NOTE: Follow the general upgrade procedure outlined in the xref:upgrading.adoc#upgrading-the-broker[Upgrading the Broker]  chapter in addition to any version-specific upgrade instructions outlined here.
 
-== 2.32.0
+== 2.33.0
 
-https://issues.apache.org/jira/secure/ReleaseNote.jspa...
+https://issues.apache.org/jira/secure/ReleaseNote.jspa?projectId=12315920&version=...[Full release notes]
 
 === Highlights
 
 * highlight 1
 * highlight 2
+
+=== Upgrading from 2.32.0
+
+* Due to https://issues.apache.org/jira/browse/ARTEMIS-4532[ARTEMIS-4532] the names of addresses and queues related to MQTT topics and subscriptions respectively may change.
+This will only impact you if *both* of the following are true:
++
+. The broker is configured to use a xref:wildcard-syntax.adoc[wildcard syntax] which _doesn't match_ the xref:mqtt.adoc#wildcard-syntax[MQTT wildcard syntax] (e.g. the default wildcard syntax).
+. You are using characters from the broker's wildcard syntax in your MQTT topic name or filter.
+For example, if you were using the default wildcard syntax and an MQTT topic named `1.0/group/device`.
+The dot (`.`) character here is part of the broker's wildcard syntax, and it is being used in the name of an MQTT topic.
++
+In this case the characters from the broker's wildcard syntax that do not match the characters in the MQTT wildcard syntax will be escaped with a backslash (i.e. `\`).
+To avoid this conversion you can configure the broker to use the MQTT wildcard syntax or change the name of the MQTT topic name or filter.
+
+== 2.32.0
+
+https://issues.apache.org/jira/secure/ReleaseNote.jspa?projectId=12315920&version=12353769[Full release notes]
+
+=== Highlights
+
+* Mirrored Core Messages can now be sent on their native format without conversions
+* Mirror bug fixes and improvements
+* https://issues.apache.org/jira/browse/ARTEMIS-3474[ActiveMQ Artemis has now adopted] more inclusive language definitions.
+* The examples are now part of its own repository:  https://github.com/apache/activemq-artemis-examples/
 
 === Upgrading from 2.31.x
 
@@ -30,6 +54,17 @@ Prior to this change removing subscription queues relied on the generic `auto-de
 These settings are now no longer required.
 +
 Configure `defaultMqttSessionExpiryInterval` instead.
+
+* Due to https://issues.apache.org/jira/browse/ARTEMIS-3474[ARTEMIS-3474] the following configuration elements have changed wherever they occur (e.g. `broker.xml`, `bootstrap.xml`, etc.), although all the previous configurations will still be supported for the time being:
+** `master` -> `primary`
+** `slave` -> `backup`
+** `check-for-live-server` -> `check-for-active-server`
+** `whitelist` -> `allowlist`
+** `blacklist` -> `denylist`
+
++
+Additionally, references to these elements have also changed in the documentation and in management interfaces.
+Cluster topology information (e.g. returned from the `listNetworkTopology`) will contain both `primary` *and* `live` entries for nodes functioning as primary servers.
 
 == 2.31.2
 
@@ -237,13 +272,16 @@ https://issues.apache.org/jira/secure/ReleaseNote.jspa?version=12352297&projectI
 
 === Upgrading from 2.25.0
 
-. We removed the *-all clients from ./lib/client in the assembly as part of https://issues.apache.org/jira/browse/ARTEMIS-4006[ARTEMIS-4006].
-If you use these libraries they can be found at Maven Central, please refer to the xref:client-classpath.adoc#the-client-classpath[client class path documentation] for more information.
-. We removed ActiveMQ-Artemis rest as part of 2.26.0.
-If you still require activemq rest you can still have access to its latest version at https://mvnrepository.com/artifact/org.apache.activemq.rest/artemis-rest/2.25.0[Maven central].
-You can still follow the steps on Rest from any https://activemq.apache.org/components/artemis/documentation/2.25.0/rest.html[previous documentation], however you should stop using the module as it will not be maintained any more.
-. We removed web content from distribution and redirected to the console web requests with the root target as part of https://issues.apache.org/jira/browse/ARTEMIS-3980[ARTEMIS-3980].
-To enable new redirect behaviour on current instances you have to update `bootstrap.xml`.
+. Due to https://issues.apache.org/jira/browse/ARTEMIS-4006[ARTEMIS-4006] the `artemis-jms-client-all` and `artemis-jakarta-client-all` clients were removed from the `lib/client` directory in the binary distribution.
+If you use these libraries they can be found at Maven Central (e.g. https://repo1.maven.org/maven2/org/apache/activemq/artemis-jms-client-all/[here]).
+Please refer to the xref:client-classpath.adoc#the-client-classpath[client class path documentation] for more information.
+. We removed the REST interface from the code-base and documentation.
+If you still require the REST interface you can access the https://mvnrepository.com/artifact/org.apache.activemq.rest/artemis-rest/2.25.0[latest version] which is still viable.
+You can still follow the steps from the https://activemq.apache.org/components/artemis/documentation/2.25.0/rest.html[previous documentation] to build and deploy the interface.
+However, you should stop using it as it will not be maintained any more.
+. Due to https://issues.apache.org/jira/browse/ARTEMIS-3980[ARTEMIS-3980] the web content was removed from the binary distribution.
+We now redirect web requests with the root target to the administration console.
+To enable this new redirect behavior on current instances you have to update `bootstrap.xml`.
 Change:
 +
 [,xml]
@@ -258,7 +296,7 @@ to:
 <web path="web" rootRedirectLocation="console">
 ----
 +
-If you used to customize the index page or to add custom content in the web folder please refer to the xref:web-server.adoc#embedded-web-server[web-server documentation] for more information on disabling the redirect and enabling the web content.
+If you used to customize the index page or to add custom content in the `web` folder please refer to the xref:web-server.adoc#embedded-web-server[web-server documentation] for more information on disabling the redirect and enabling the web content.
 
 == 2.25.0
 
@@ -435,7 +473,8 @@ This is done to avoid adverse conditions with large volumes of message data whic
 The `management-message-attribute-size-limit` address-setting controls this behavior.
 If you wish to restore the previous (and potentially dangerous behavior) then you can specify `-1` for this.
 It is `256` by default.
-[discrete]== 2.17.0
+
+== 2.17.0
 
 https://issues.apache.org/jira/secure/ReleaseNote.jspa?projectId=12315920&version=12349326[Full release notes].
 
@@ -766,7 +805,7 @@ https://issues.apache.org/jira/secure/ReleaseNote.jspa?projectId=12315920&versio
 * Support xref:web-server.adoc#embedded-web-server[logging HTTP access].
 * Add a CLI command to purge a queue.
 * Support user and role manipulation for PropertiesLoginModule via management interfaces.
-* https://github.com/apache/activemq-artemis/tree/master/artemis-docker[Docker images].
+* https://github.com/apache/activemq-artemis/tree/main/artemis-docker[Docker images].
 * xref:logging.adoc#configuring-broker-audit-logging[Audit logging].
 * Implementing xref:consumer-priority.adoc#consumer-priority[consumer priority].
 * Support xref:address-model.adoc#fully-qualified-queue-names[FQQN] for producers.
