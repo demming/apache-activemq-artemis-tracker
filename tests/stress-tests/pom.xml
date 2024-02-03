@@ -88,23 +88,9 @@
       </dependency>
       <dependency>
          <groupId>org.apache.activemq.tests</groupId>
-         <artifactId>unit-tests</artifactId>
-         <version>${project.version}</version>
-         <scope>test</scope>
-         <type>test-jar</type>
-      </dependency>
-      <dependency>
-         <groupId>org.apache.activemq.tests</groupId>
          <artifactId>artemis-test-support</artifactId>
          <version>${project.version}</version>
          <scope>test</scope>
-      </dependency>
-      <dependency>
-         <groupId>org.apache.activemq.tests</groupId>
-         <artifactId>integration-tests</artifactId>
-         <version>${project.version}</version>
-         <scope>test</scope>
-         <type>test-jar</type>
       </dependency>
       <dependency>
          <groupId>org.apache.activemq</groupId>
@@ -121,6 +107,11 @@
          <groupId>org.apache.derby</groupId>
          <artifactId>derby</artifactId>
          <version>${apache.derby.version}</version>
+         <scope>test</scope>
+      </dependency>
+      <dependency>
+         <groupId>org.apache.derby</groupId>
+         <artifactId>derbytools</artifactId>
          <scope>test</scope>
       </dependency>
       <dependency>
