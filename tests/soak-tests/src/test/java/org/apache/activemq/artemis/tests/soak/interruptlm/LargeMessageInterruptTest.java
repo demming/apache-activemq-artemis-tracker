@@ -38,7 +38,7 @@ import org.apache.activemq.artemis.api.core.management.ObjectNameBuilder;
 import org.apache.activemq.artemis.api.core.management.QueueControl;
 import org.apache.activemq.artemis.tests.soak.SoakTestBase;
 import org.apache.activemq.artemis.tests.util.CFUtil;
-import org.apache.activemq.artemis.tests.util.Wait;
+import org.apache.activemq.artemis.utils.Wait;
 import org.apache.activemq.artemis.utils.cli.helper.HelperCreate;
 import org.junit.Assert;
 import org.junit.Before;
@@ -72,7 +72,7 @@ public class LargeMessageInterruptTest extends SoakTestBase {
    private static final int JMX_SERVER_PORT_0 = 1099;
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
    static String liveURI = "service:jmx:rmi:///jndi/rmi://" + JMX_SERVER_HOSTNAME + ":" + JMX_SERVER_PORT_0 + "/jmxrmi";
-   static ObjectNameBuilder liveNameBuilder = ObjectNameBuilder.create(ActiveMQDefaultConfiguration.getDefaultJmxDomain(), "lminterrupt", true);
+   static ObjectNameBuilder nameBuilder = ObjectNameBuilder.create(ActiveMQDefaultConfiguration.getDefaultJmxDomain(), "lminterrupt", true);
    Process serverProcess;
 
    public ConnectionFactory createConnectionFactory(String protocol) {
@@ -244,7 +244,7 @@ public class LargeMessageInterruptTest extends SoakTestBase {
       Assert.assertTrue(done.await(60, TimeUnit.SECONDS));
       Assert.assertEquals(0, errors.get());
 
-      QueueControl queueControl = getQueueControl(liveURI, liveNameBuilder, queueName, queueName, RoutingType.ANYCAST, 5000);
+      QueueControl queueControl = getQueueControl(liveURI, nameBuilder, queueName, queueName, RoutingType.ANYCAST, 5000);
 
       long numberOfMessages = queueControl.getMessageCount();
       logger.info("there are {} messages", numberOfMessages);

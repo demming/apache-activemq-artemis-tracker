@@ -19,12 +19,12 @@
    <parent>
       <groupId>org.apache.activemq.tests</groupId>
       <artifactId>artemis-tests-pom</artifactId>
-      <version>2.32.0-SNAPSHOT</version>
+      <version>2.33.0-SNAPSHOT</version>
    </parent>
 
    <artifactId>artemis-test-support</artifactId>
    <packaging>jar</packaging>
-   <name>ActiveMQ Artemis Test Support</name>
+   <name>ActiveMQ Artemis System Test Support</name>
 
    <properties>
       <activemq.basedir>${project.basedir}/../..</activemq.basedir>
@@ -81,11 +81,6 @@
          <scope>provided</scope>
       </dependency>
       <dependency>
-         <groupId>org.slf4j</groupId>
-         <artifactId>slf4j-api</artifactId>
-         <scope>provided</scope>
-      </dependency>
-      <dependency>
          <groupId>io.netty</groupId>
          <artifactId>netty-buffer</artifactId>
          <scope>provided</scope>
@@ -116,24 +111,49 @@
          <scope>provided</scope>
       </dependency>
       <dependency>
+         <groupId>jakarta.resource</groupId>
+         <artifactId>jakarta.resource-api</artifactId>
+         <scope>provided</scope>
+      </dependency>
+      <dependency>
          <groupId>junit</groupId>
          <artifactId>junit</artifactId>
          <scope>provided</scope>
       </dependency>
-
+      <dependency>
+         <groupId>org.apache.activemq</groupId>
+         <artifactId>artemis-server</artifactId>
+         <version>${project.version}</version>
+         <scope>provided</scope>
+      </dependency>
+      <dependency>
+         <groupId>org.apache.activemq</groupId>
+         <artifactId>artemis-jms-server</artifactId>
+         <version>${project.version}</version>
+         <scope>provided</scope>
+      </dependency>
       <dependency>
          <groupId>org.apache.activemq</groupId>
          <artifactId>artemis-stomp-protocol</artifactId>
          <version>${project.version}</version>
          <scope>provided</scope>
       </dependency>
+      <dependency>
+         <groupId>org.slf4j</groupId>
+         <artifactId>slf4j-api</artifactId>
+         <scope>provided</scope>
+      </dependency>
+      <dependency>
+         <groupId>org.apache.logging.log4j</groupId>
+         <artifactId>log4j-slf4j2-impl</artifactId>
+         <scope>provided</scope>
+      </dependency>
 
-      <!-- This should be the only dependency not at 'provided' scope, for now -->
+      <!-- This should be the only dependency not at 'provided' scope -->
       <dependency>
          <groupId>org.apache.activemq</groupId>
-         <artifactId>artemis-server</artifactId>
+         <artifactId>artemis-unit-test-support</artifactId>
          <version>${project.version}</version>
-         <type>test-jar</type>
       </dependency>
    </dependencies>
 </project>

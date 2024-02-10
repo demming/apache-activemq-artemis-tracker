@@ -75,6 +75,7 @@ import org.apache.activemq.artemis.utils.collections.TypedProperties;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.lang.invoke.MethodHandles;
+import org.apache.activemq.artemis.api.core.ActiveMQDisconnectedException;
 
 /**
  * A Core BridgeImpl
@@ -661,7 +662,11 @@ public class BridgeImpl implements Bridge, SessionFailureListener, SendAcknowled
    @Override
    public void connectionFailed(final ActiveMQException me, boolean failedOver, String scaleDownTargetNodeID) {
       if (server.isStarted()) {
-         ActiveMQServerLogger.LOGGER.bridgeConnectionFailed(failedOver);
+         if (me instanceof ActiveMQDisconnectedException) {
+            ActiveMQServerLogger.LOGGER.bridgeConnectionClosed(failedOver);
+         } else {
+            ActiveMQServerLogger.LOGGER.bridgeConnectionFailed(failedOver);
+         }
       }
 
       synchronized (connectionGuard) {
@@ -863,7 +868,7 @@ public class BridgeImpl implements Bridge, SessionFailureListener, SendAcknowled
    protected void afterConnect() throws Exception {
       if (disconnectedAndDown && targetNodeID != null && targetNode != null) {
          serverLocator.notifyNodeUp(System.currentTimeMillis(), targetNodeID, targetNode.getBackupGroupName(), targetNode.getScaleDownGroupName(),
-                                    new Pair<>(targetNode.getLive(), targetNode.getBackup()), false);
+                                    new Pair<>(targetNode.getPrimary(), targetNode.getBackup()), false);
          disconnectedAndDown = false;
       }
       retryCount = 0;
@@ -895,11 +900,11 @@ public class BridgeImpl implements Bridge, SessionFailureListener, SendAcknowled
       String targetNodeIdUse = targetNodeID;
       TopologyMember nodeUse = targetNode;
       if (targetNodeIdUse != null && nodeUse != null) {
-         TransportConfiguration[] configs = new TransportConfiguration[2]; // live and backup
+         TransportConfiguration[] configs = new TransportConfiguration[2]; // primary and backup
          int numberOfConfigs = 0;
 
-         if (nodeUse.getLive() != null) {
-            configs[numberOfConfigs++] = nodeUse.getLive();
+         if (nodeUse.getPrimary() != null) {
+            configs[numberOfConfigs++] = nodeUse.getPrimary();
          }
          if (nodeUse.getBackup() != null) {
             configs[numberOfConfigs++] = nodeUse.getBackup();

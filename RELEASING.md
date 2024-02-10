@@ -2,7 +2,7 @@
 
 Things to do before issuing a new release:
 
-* Update docs/user-manual/en/versions.md to include appropriate release notes and upgrade instructions. See previous
+* Update docs/user-manual/en/versions.adoc to include appropriate release notes and upgrade instructions. See previous
   entries for guidance.
 
 * Build the release locally: mvn clean install -Prelease
@@ -309,6 +309,8 @@ cd activemq-website
 ```
 
 **NOTE**: Some of the release scripts use [Python](https://www.python.org/), ensure you have it installed before proceeding.
+Also, the [PyYAML](https://pyyaml.org/wiki/PyYAMLDocumentation) lib is used. Examples for installing that include
+using `dnf install python3-pyyaml` on Fedora, or installing it using Pip by running `pip install pyyaml`.
 
 Once the CDN and Maven Central are up-to-date then update the site as follows:
 
@@ -339,12 +341,13 @@ Once pushed, the changes should be published automatically by the `jekyll_websit
 
 The [examples repo](https://github.com/apache/activemq-artemis-examples) should be updated to reflect the new release and development versions.
 
-Take a fresh clone of the repo and run the provided script, then check the results and push.
+Take a fresh clone of the repo, check out the development branch, and run the provided script, then check the results and push.
 
 ```
 git clone https://gitbox.apache.org/repos/asf/activemq-artemis-examples.git
 
 cd activemq-artemis-examples
+git checkout development
 ./scripts/release/update-branch-versions.sh <release-version> <new-main-snapshot-version>"
 ```
 
@@ -353,6 +356,7 @@ Example from the 2.32.0 release:
 git clone https://gitbox.apache.org/repos/asf/activemq-artemis-examples.git
 
 cd activemq-artemis-examples
+git checkout development
 ./scripts/release/update-branch-versions.sh 2.32.0 2.33.0-SNAPSHOT"
 ```
 
@@ -364,15 +368,15 @@ NOTE: The `main` branch CI build does not build Artemis, so the release must be 
 
 1. If you don't have an account on https://hub.docker.com/ then create one.
 2. [Install `docker`](https://docs.docker.com/engine/install/) in your environment.
-3. Ensure you have access to push images to `apache/activemq-artemis`. If you don't have access you can request it by
-   creating an INFRA Jira ticket (e.g. https://issues.apache.org/jira/browse/INFRA-24831).
-4. Go to the `scripts` directory and run `release-docker.sh` with the proper parameters, e.g.:
+3. If you don't already have it, then install the [`buildx` Docker plugin](https://github.com/docker/buildx#installing) to support multi-platform builds because `release-docker.sh` will create images for both `linux/amd64` and `linux/arm64`. This, of course, requires the base images from Eclipse Temurin to support these platforms as well (which they do).
+4. Ensure you have access to push images to `apache/activemq-artemis`. If you don't have access you can request it by creating an INFRA Jira ticket (e.g. https://issues.apache.org/jira/browse/INFRA-24831).
+5. Go to the `scripts` directory and run `release-docker.sh` with the proper parameters, e.g.:
    ```shell
    $ ./release-docker.sh 2.31.0 apache
    ```
    You can easily perform a test run by using your personal account, e.g.:
    ```shell
-   $ ./release-docker.sh 2.31.0 jbertram
+   $ ./release-docker.sh 2.31.0 myUsername
    ```
 
 ## Send announcement to user list

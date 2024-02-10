@@ -29,6 +29,7 @@ import org.apache.activemq.artemis.api.core.ActiveMQException;
 import org.apache.activemq.artemis.api.core.ActiveMQExceptionType;
 import org.apache.activemq.artemis.api.core.Message;
 import org.apache.activemq.artemis.api.core.QueueConfiguration;
+import org.apache.activemq.artemis.api.core.RoutingType;
 import org.apache.activemq.artemis.api.core.SimpleString;
 import org.apache.activemq.artemis.api.core.TransportConfiguration;
 import org.apache.activemq.artemis.api.core.client.ClientConsumer;
@@ -258,6 +259,8 @@ public class ClusterConnectionBridge extends BridgeImpl {
                                                    "', '" +
                                                    CoreNotificationType.BINDING_REMOVED +
                                                    "', '" +
+                                                   CoreNotificationType.BINDING_UPDATED +
+                                                   "', '" +
                                                    CoreNotificationType.CONSUMER_CREATED +
                                                    "', '" +
                                                    CoreNotificationType.CONSUMER_CLOSED +
@@ -278,7 +281,12 @@ public class ClusterConnectionBridge extends BridgeImpl {
                                                    createPermissiveManagementNotificationToFilter() +
                                                    ")");
 
-         sessionConsumer.createQueue(new QueueConfiguration(notifQueueName).setAddress(managementNotificationAddress).setFilterString(filter).setDurable(false).setTemporary(true));
+         sessionConsumer.createQueue(new QueueConfiguration(notifQueueName)
+                                        .setAddress(managementNotificationAddress)
+                                        .setFilterString(filter)
+                                        .setDurable(false)
+                                        .setTemporary(true)
+                                        .setRoutingType(RoutingType.MULTICAST));
 
          notifConsumer = sessionConsumer.createConsumer(notifQueueName);
 

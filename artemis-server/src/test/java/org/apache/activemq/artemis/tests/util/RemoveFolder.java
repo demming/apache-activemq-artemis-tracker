@@ -19,6 +19,7 @@ package org.apache.activemq.artemis.tests.util;
 
 import java.io.File;
 
+import org.apache.activemq.artemis.utils.FileUtil;
 import org.junit.rules.ExternalResource;
 
 /**
@@ -37,6 +38,6 @@ public class RemoveFolder extends ExternalResource {
     */
    @Override
    protected void after() {
-      ActiveMQTestBase.deleteDirectory(new File(folderName));
+      FileUtil.deleteDirectory(new File(folderName));
    }
 }

@@ -49,7 +49,7 @@ import org.apache.activemq.artemis.core.config.FileDeploymentManager;
 import org.apache.activemq.artemis.core.config.HAPolicyConfiguration;
 import org.apache.activemq.artemis.core.config.MetricsConfiguration;
 import org.apache.activemq.artemis.core.config.routing.ConnectionRouterConfiguration;
-import org.apache.activemq.artemis.core.config.ha.LiveOnlyPolicyConfiguration;
+import org.apache.activemq.artemis.core.config.ha.PrimaryOnlyPolicyConfiguration;
 import org.apache.activemq.artemis.core.journal.impl.JournalImpl;
 import org.apache.activemq.artemis.core.remoting.impl.netty.TransportConstants;
 import org.apache.activemq.artemis.core.security.Role;
@@ -179,6 +179,7 @@ public class FileConfigurationTest extends ConfigurationImplTest {
       Assert.assertEquals(true, conf.isPopulateValidatedUser());
       Assert.assertEquals(false, conf.isRejectEmptyValidatedUser());
       Assert.assertEquals(123456, conf.getMqttSessionScanInterval());
+      Assert.assertEquals(567890, conf.getMqttSessionStatePersistenceTimeout());
       Assert.assertEquals(98765, conf.getConnectionTtlCheckInterval());
       Assert.assertEquals(1234567, conf.getConfigurationFileRefreshPeriod());
       Assert.assertEquals("TEMP", conf.getTemporaryQueueNamespace());
@@ -375,8 +376,8 @@ public class FileConfigurationTest extends ConfigurationImplTest {
 
       HAPolicyConfiguration pc = conf.getHAPolicyConfiguration();
       assertNotNull(pc);
-      assertTrue(pc instanceof LiveOnlyPolicyConfiguration);
-      LiveOnlyPolicyConfiguration lopc = (LiveOnlyPolicyConfiguration) pc;
+      assertTrue(pc instanceof PrimaryOnlyPolicyConfiguration);
+      PrimaryOnlyPolicyConfiguration lopc = (PrimaryOnlyPolicyConfiguration) pc;
       assertNotNull(lopc.getScaleDownConfiguration());
       assertEquals(lopc.getScaleDownConfiguration().getGroupName(), "boo!");
       assertEquals(lopc.getScaleDownConfiguration().getDiscoveryGroup(), "dg1");
@@ -405,6 +406,7 @@ public class FileConfigurationTest extends ConfigurationImplTest {
             Assert.assertEquals("connector2", ccc.getStaticConnectors().get(1));
             Assert.assertEquals(null, ccc.getDiscoveryGroupName());
             Assert.assertEquals(222, ccc.getProducerWindowSize());
+            Assert.assertEquals(true, ccc.isAllowDirectConnectionsOnly());
          } else {
             Assert.assertEquals("cluster-connection2", ccc.getName());
             Assert.assertEquals("queues2", ccc.getAddress());
@@ -417,6 +419,7 @@ public class FileConfigurationTest extends ConfigurationImplTest {
             Assert.assertEquals(Collections.emptyList(), ccc.getStaticConnectors());
             Assert.assertEquals("dg1", ccc.getDiscoveryGroupName());
             Assert.assertEquals(333, ccc.getProducerWindowSize());
+            Assert.assertEquals(false, ccc.isAllowDirectConnectionsOnly());
          }
       }
 
@@ -843,7 +846,7 @@ public class FileConfigurationTest extends ConfigurationImplTest {
    @Test
    public void testJournalFileOpenTimeoutValue() throws Exception {
       int timeout = RandomUtil.randomPositiveInt();
-      Configuration configuration = createConfiguration("shared-store-master-hapolicy-config.xml");
+      Configuration configuration = createConfiguration("shared-store-primary-hapolicy-config.xml");
       configuration.setJournalFileOpenTimeout(timeout)
                    .setJournalDirectory(getJournalDir())
                    .setPagingDirectory(getPageDir())

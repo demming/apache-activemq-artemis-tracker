@@ -47,13 +47,11 @@ public class MQTTSessionState {
 
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
 
-   public static final MQTTSessionState DEFAULT = new MQTTSessionState((String) null, null);
+   public static final MQTTSessionState DEFAULT = new MQTTSessionState((String) null);
 
    private MQTTSession session;
 
    private final String clientId;
-
-   private final MQTTStateManager stateManager;
 
    private final ConcurrentMap<String, Pair<MqttTopicSubscription, Integer>> subscriptions = new ConcurrentHashMap<>();
 
@@ -98,9 +96,8 @@ public class MQTTSessionState {
 
    private Map<String, Integer> serverTopicAliases;
 
-   public MQTTSessionState(String clientId, MQTTStateManager stateManager) {
+   public MQTTSessionState(String clientId) {
       this.clientId = clientId;
-      this.stateManager = stateManager;
    }
 
    /**
@@ -119,12 +116,10 @@ public class MQTTSessionState {
     *  - int (nullable): subscription identifier
     *
     * @param message the message holding the MQTT session data
-    * @param stateManager the manager used to add and remove sessions from storage
     */
-   public MQTTSessionState(CoreMessage message, MQTTStateManager stateManager) {
+   public MQTTSessionState(CoreMessage message) {
       logger.debug("Deserializing MQTT session state from {}", message);
       this.clientId = message.getStringProperty(Message.HDR_LAST_VALUE_NAME);
-      this.stateManager = stateManager;
       ActiveMQBuffer buf = message.getDataBuffer();
 
       // no need to use the version at this point
@@ -204,7 +199,7 @@ public class MQTTSessionState {
    public boolean addSubscription(MqttTopicSubscription subscription, WildcardConfiguration wildcardConfiguration, Integer subscriptionIdentifier) throws Exception {
       // synchronized to prevent race with removeSubscription
       synchronized (subscriptions) {
-         addressMessageMap.putIfAbsent(MQTTUtil.convertMqttTopicFilterToCore(subscription.topicName(), wildcardConfiguration).toString(), new ConcurrentHashMap<>());
+         addressMessageMap.putIfAbsent(MQTTUtil.getCoreAddressFromMqttTopic(subscription.topicName(), wildcardConfiguration), new ConcurrentHashMap<>());
 
          Pair<MqttTopicSubscription, Integer> existingSubscription = subscriptions.get(subscription.topicName());
          if (existingSubscription != null) {
@@ -242,7 +237,7 @@ public class MQTTSessionState {
    }
 
    public List<Integer> getMatchingSubscriptionIdentifiers(String address) {
-      address = MQTTUtil.convertCoreAddressToMqttTopicFilter(address, session.getServer().getConfiguration().getWildcardConfiguration());
+      address = MQTTUtil.getMqttTopicFromCoreAddress(address, session.getServer().getConfiguration().getWildcardConfiguration());
       List<Integer> result = null;
       for (Pair<MqttTopicSubscription, Integer> pair : subscriptions.values()) {
          Pattern pattern = Match.createPattern(pair.getA().topicName(), MQTTUtil.MQTT_WILDCARD, true);

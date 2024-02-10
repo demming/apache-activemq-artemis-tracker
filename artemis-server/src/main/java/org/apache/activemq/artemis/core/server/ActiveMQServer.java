@@ -437,7 +437,7 @@ public interface ActiveMQServer extends ServiceComponent {
 
    /**
     * Returns whether the initial replication synchronization process with the backup server is complete; applicable for
-    * either the live or backup server.
+    * either the primary or backup server.
     */
    boolean isReplicaSync();
 
@@ -750,6 +750,16 @@ public interface ActiveMQServer extends ServiceComponent {
 
    void registerBrokerConnection(BrokerConnection brokerConnection);
 
+   /**
+    * Removes the given broker connection from the tracked set of active broker
+    * connection entries. Unregistering the connection results in it being forgotten
+    * and the caller is responsible for stopping the connection.
+    *
+    * @param brokerConnection
+    *       The broker connection that should be forgotten.
+    */
+   void unregisterBrokerConnection(BrokerConnection brokerConnection);
+
    void startBrokerConnection(String name) throws Exception;
 
    void stopBrokerConnection(String name) throws Exception;
@@ -972,6 +982,8 @@ public interface ActiveMQServer extends ServiceComponent {
     * @throws Exception
     */
    void autoRemoveAddressInfo(SimpleString address, SecurityAuth auth) throws Exception;
+
+   void registerQueueOnManagement(Queue queue, boolean registerInternal) throws Exception;
 
    /**
     * Remove an {@code AddressInfo} from the broker.

@@ -31,7 +31,7 @@ import org.apache.activemq.artemis.api.core.management.ObjectNameBuilder;
 import org.apache.activemq.artemis.api.core.management.QueueControl;
 import org.apache.activemq.artemis.tests.soak.SoakTestBase;
 import org.apache.activemq.artemis.tests.util.CFUtil;
-import org.apache.activemq.artemis.tests.util.Wait;
+import org.apache.activemq.artemis.utils.Wait;
 import org.apache.activemq.artemis.utils.cli.helper.HelperCreate;
 import org.junit.Assert;
 import org.junit.Before;
@@ -62,7 +62,7 @@ public class JournalFlushInterruptTest extends SoakTestBase {
    private static final int JMX_SERVER_PORT_0 = 1099;
    private static final Logger logger = LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
    static String liveURI = "service:jmx:rmi:///jndi/rmi://" + JMX_SERVER_HOSTNAME + ":" + JMX_SERVER_PORT_0 + "/jmxrmi";
-   static ObjectNameBuilder liveNameBuilder = ObjectNameBuilder.create(ActiveMQDefaultConfiguration.getDefaultJmxDomain(), "jfinterrupt", true);
+   static ObjectNameBuilder nameBuilder = ObjectNameBuilder.create(ActiveMQDefaultConfiguration.getDefaultJmxDomain(), "jfinterrupt", true);
    Process serverProcess;
 
    @Before
@@ -90,7 +90,7 @@ public class JournalFlushInterruptTest extends SoakTestBase {
          }
       }
 
-      QueueControl queueControl = getQueueControl(liveURI, liveNameBuilder, queueName, queueName, RoutingType.ANYCAST, 5000);
+      QueueControl queueControl = getQueueControl(liveURI, nameBuilder, queueName, queueName, RoutingType.ANYCAST, 5000);
 
       Wait.assertEquals(messageCount, queueControl::getMessageCount, 5000);
       Thread.sleep(100);
@@ -100,7 +100,7 @@ public class JournalFlushInterruptTest extends SoakTestBase {
       serverProcess = startServer(SERVER_NAME_0, 0, 0);
 
       waitForServerToStart("tcp://localhost:61616", "artemis", "artemis", 5000);
-      queueControl = getQueueControl(liveURI, liveNameBuilder, queueName, queueName, RoutingType.ANYCAST, 5000);
+      queueControl = getQueueControl(liveURI, nameBuilder, queueName, queueName, RoutingType.ANYCAST, 5000);
 
       Wait.assertEquals(messageCount, queueControl::getMessageCount);
 

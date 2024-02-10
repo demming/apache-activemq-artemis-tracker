@@ -20,7 +20,7 @@
    <parent>
       <groupId>org.apache.activemq.tests</groupId>
       <artifactId>artemis-tests-pom</artifactId>
-      <version>2.32.0-SNAPSHOT</version>
+      <version>2.33.0-SNAPSHOT</version>
    </parent>
 
    <artifactId>integration-tests-isolated</artifactId>
@@ -261,18 +261,6 @@
                         </resource>
                      </resources>
                   </configuration>
-               </execution>
-            </executions>
-         </plugin>
-         <plugin>
-            <groupId>org.apache.maven.plugins</groupId>
-            <artifactId>maven-jar-plugin</artifactId>
-            <executions>
-               <execution>
-                  <phase>test</phase>
-                  <goals>
-                     <goal>test-jar</goal>
-                  </goals>
                </execution>
             </executions>
          </plugin>

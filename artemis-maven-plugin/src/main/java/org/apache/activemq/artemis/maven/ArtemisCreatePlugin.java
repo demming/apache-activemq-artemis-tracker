@@ -100,7 +100,11 @@ public class ArtemisCreatePlugin extends ArtemisAbstractPlugin {
    private boolean clustered;
 
    @Parameter(defaultValue = "false")
+   @Deprecated(forRemoval = true)
    private boolean slave;
+
+   @Parameter(defaultValue = "false")
+   private boolean backup;
 
    @Parameter
    private String staticCluster;
@@ -204,8 +208,8 @@ public class ArtemisCreatePlugin extends ArtemisAbstractPlugin {
          add(listCommands, "--no-web");
       }
 
-      if (slave) {
-         add(listCommands, "--slave");
+      if (slave || backup) {
+         add(listCommands, "--backup");
       }
 
       if (replicated) {
@@ -257,7 +261,7 @@ public class ArtemisCreatePlugin extends ArtemisAbstractPlugin {
          commandLineStream.println("# These are the commands used to create " + instance.getName());
          commandLineStream.println(getCommandline(listCommands));
 
-         Artemis.execute(home, null, null, useSystemOutput, listCommands);
+         Artemis.execute(home, null, null, useSystemOutput, false, listCommands);
 
          if (configuration != null) {
             String[] list = configuration.list();

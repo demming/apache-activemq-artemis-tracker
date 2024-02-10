@@ -49,6 +49,7 @@ import org.apache.activemq.artemis.core.client.impl.Topology;
 import org.apache.activemq.artemis.core.client.impl.TopologyManager;
 import org.apache.activemq.artemis.core.client.impl.TopologyMemberImpl;
 import org.apache.activemq.artemis.core.config.impl.ConfigurationImpl;
+import org.apache.activemq.artemis.core.filter.impl.FilterImpl;
 import org.apache.activemq.artemis.core.postoffice.Binding;
 import org.apache.activemq.artemis.core.postoffice.PostOffice;
 import org.apache.activemq.artemis.core.postoffice.impl.PostOfficeImpl;
@@ -172,7 +173,7 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
 
    private volatile boolean stopping = false;
 
-   private LiveNotifier liveNotifier = null;
+   private PrimaryNotifier primaryNotifier = null;
 
    private final long clusterNotificationInterval;
 
@@ -514,12 +515,12 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
          logger.debug("{}::NodeAnnounced, backup={}{}{}", this, backup, nodeID, connectorPair);
       }
 
-      TransportConfiguration live = connectorPair.getA();
+      TransportConfiguration primary = connectorPair.getA();
       TransportConfiguration backupTC = connectorPair.getB();
-      TopologyMemberImpl newMember = new TopologyMemberImpl(nodeID, backupGroupName, scaleDownGroupName, live, backupTC);
+      TopologyMemberImpl newMember = new TopologyMemberImpl(nodeID, backupGroupName, scaleDownGroupName, primary, backupTC);
       newMember.setUniqueEventID(uniqueEventID);
       if (backup) {
-         topology.updateBackup(new TopologyMemberImpl(nodeID, backupGroupName, scaleDownGroupName, live, backupTC));
+         topology.updateBackup(new TopologyMemberImpl(nodeID, backupGroupName, scaleDownGroupName, primary, backupTC));
       } else {
          topology.updateMember(uniqueEventID, nodeID, newMember);
       }
@@ -535,13 +536,13 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
    @Override
    public boolean updateMember(long uniqueEventID, String nodeId, TopologyMemberImpl memberInput) {
       if (splitBrainDetection && nodeId.equals(nodeManager.getNodeId().toString())) {
-         if (memberInput.getLive() != null) {
-            if (!memberInput.getLive().isSameParams(connector)) {
+         if (memberInput.getPrimary() != null) {
+            if (!memberInput.getPrimary().isSameParams(connector)) {
                ActiveMQServerLogger.LOGGER.possibleSplitBrain(nodeId, memberInput.toString());
                return false;
             }
          } else {
-            memberInput.setLive(connector);
+            memberInput.setPrimary(connector);
          }
       }
       return true;
@@ -554,9 +555,13 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
     * @return
     */
    @Override
-   public boolean removeMember(final long uniqueEventID, final String nodeId) {
+   public boolean removeMember(final long uniqueEventID, final String nodeId, final boolean disconnect) {
       if (nodeId.equals(nodeManager.getNodeId().toString())) {
-         ActiveMQServerLogger.LOGGER.possibleSplitBrain(nodeId);
+         if (!disconnect) {
+            ActiveMQServerLogger.LOGGER.possibleSplitBrain(nodeId);
+         } else {
+            ActiveMQServerLogger.LOGGER.nodeLeavingCluster(nodeId);
+         }
          return false;
       }
       return true;
@@ -579,7 +584,7 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
          ClusterControl clusterControl = manager.getClusterController().connectToNodeInCluster(sf);
          try {
             clusterControl.authorize();
-            clusterControl.sendNodeAnnounce(localMember.getUniqueEventID(), manager.getNodeId(), manager.getBackupGroupName(), manager.getScaleDownGroupName(), false, localMember.getLive(), localMember.getBackup());
+            clusterControl.sendNodeAnnounce(localMember.getUniqueEventID(), manager.getNodeId(), manager.getBackupGroupName(), manager.getScaleDownGroupName(), false, localMember.getPrimary(), localMember.getBackup());
          } catch (ActiveMQException e) {
             ActiveMQServerLogger.LOGGER.clusterControlAuthfailure(e.getMessage());
             logger.debug(e.getMessage(), e);
@@ -631,6 +636,11 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
    }
 
    @Override
+   public long getProducerWindowSize() {
+      return producerWindowSize;
+   }
+
+   @Override
    public Bridge[] getBridges() {
       synchronized (recordsGuard) {
          return records.values().stream().map(MessageFlowRecord::getBridge).toArray(Bridge[]::new);
@@ -660,9 +670,9 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
          logger.debug("Activating cluster connection nodeID={} for server={}", nodeManager.getNodeId(), server);
       }
 
-      liveNotifier = new LiveNotifier();
-      liveNotifier.updateAsLive();
-      liveNotifier.schedule();
+      primaryNotifier = new PrimaryNotifier();
+      primaryNotifier.updateAsPrimary();
+      primaryNotifier.schedule();
 
       serverLocator = clusterConnector.createServerLocator();
 
@@ -751,21 +761,22 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
          return;
       }
 
-      // if the node is more than 1 hop away, we do not create a bridge for direct cluster connection
-      if (allowDirectConnectionsOnly && !allowableConnections.contains(topologyMember.getLive().newTransportConfig(TRANSPORT_CONFIG_NAME))) {
-         return;
-      }
-
       // FIXME required to prevent cluster connections w/o discovery group
       // and empty static connectors to create bridges... ulgy!
       if (serverLocator == null) {
          return;
       }
+
       /*we don't create bridges to backups*/
-      if (topologyMember.getLive() == null) {
+      if (topologyMember.getPrimary() == null) {
          if (logger.isTraceEnabled()) {
             logger.trace("{} ignoring call with nodeID={}, topologyMember={}, last={}", this, nodeID, topologyMember, last);
          }
+         return;
+      }
+
+      // if the node is more than 1 hop away, we do not create a bridge for direct cluster connection
+      if (allowDirectConnectionsOnly && !allowableConnections.contains(topologyMember.getPrimary().newTransportConfig(TRANSPORT_CONFIG_NAME))) {
          return;
       }
 
@@ -798,7 +809,7 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
                // such as we don't hold groupIDs inside the SnF queue
                queue.setInternalQueue(true);
 
-               createNewRecord(topologyMember.getUniqueEventID(), nodeID, topologyMember.getLive(), queueName, queue, true);
+               createNewRecord(topologyMember.getUniqueEventID(), nodeID, topologyMember.getPrimary(), queueName, queue, true);
             } else {
                if (logger.isTraceEnabled()) {
                   logger.trace("{} ignored nodeUp record for {} on nodeID={} as the record already existed", this, topologyMember, nodeID);
@@ -820,7 +831,7 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
 
       TopologyMemberImpl localMember = new TopologyMemberImpl(nodeID, null, null, null, connector);
 
-      topology.updateAsLive(nodeID, localMember);
+      topology.updateAsPrimary(nodeID, localMember);
    }
 
 
@@ -1125,6 +1136,10 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
 
                break;
             }
+            case BINDING_UPDATED: {
+               doBindingUpdated(message);
+               break;
+            }
             case CONSUMER_CREATED: {
                doConsumerCreated(message);
 
@@ -1257,6 +1272,22 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
          reset = false;
          for (RemoteQueueBinding binding : new HashSet<>(bindings.values())) {
             disconnectBinding(binding.getClusterName());
+         }
+      }
+
+      private synchronized void doBindingUpdated(final ClientMessage message) throws Exception {
+         logger.trace("{} Update binding {}", ClusterConnectionImpl.this, message);
+         if (!message.containsProperty(ManagementHelper.HDR_CLUSTER_NAME)) {
+            throw new IllegalStateException("clusterName is null");
+         }
+
+         SimpleString clusterName = message.getSimpleStringProperty(ManagementHelper.HDR_CLUSTER_NAME);
+         SimpleString filterString = message.getSimpleStringProperty(ManagementHelper.HDR_FILTERSTRING);
+
+         RemoteQueueBinding existingBinding = (RemoteQueueBinding) postOffice.getBinding(clusterName);
+
+         if (existingBinding != null) {
+            existingBinding.setFilter(FilterImpl.createFilter(filterString));
          }
       }
 
@@ -1605,13 +1636,13 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
       }
    }
 
-   private final class LiveNotifier implements Runnable {
+   private final class PrimaryNotifier implements Runnable {
 
       int notificationsSent = 0;
 
       @Override
       public void run() {
-         resendLive();
+         resendPrimary();
 
          schedule();
       }
@@ -1622,13 +1653,13 @@ public final class ClusterConnectionImpl implements ClusterConnection, AfterConn
          }
       }
 
-      public void updateAsLive() {
+      public void updateAsPrimary() {
          if (!stopping && started) {
-            topology.updateAsLive(manager.getNodeId(), new TopologyMemberImpl(manager.getNodeId(), manager.getBackupGroupName(), manager.getScaleDownGroupName(), connector, null));
+            topology.updateAsPrimary(manager.getNodeId(), new TopologyMemberImpl(manager.getNodeId(), manager.getBackupGroupName(), manager.getScaleDownGroupName(), connector, null));
          }
       }
 
-      public void resendLive() {
+      public void resendPrimary() {
          if (!stopping && started) {
             topology.resendNode(manager.getNodeId());
          }

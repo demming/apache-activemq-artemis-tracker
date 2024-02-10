@@ -48,8 +48,8 @@ import org.apache.activemq.artemis.core.paging.cursor.PageIterator;
 import org.apache.activemq.artemis.core.paging.cursor.PageSubscription;
 import org.apache.activemq.artemis.core.paging.cursor.PagedReference;
 import org.apache.activemq.artemis.core.paging.cursor.PagedReferenceImpl;
-import org.apache.activemq.artemis.core.paging.cursor.impl.PageCursorProviderAccessor;
 import org.apache.activemq.artemis.core.paging.cursor.impl.PageCursorProviderImpl;
+import org.apache.activemq.artemis.core.paging.cursor.impl.PageCursorProviderTestAccessor;
 import org.apache.activemq.artemis.core.paging.impl.Page;
 import org.apache.activemq.artemis.core.paging.impl.PageReadWriter;
 import org.apache.activemq.artemis.core.paging.impl.PageTransactionInfoImpl;
@@ -67,7 +67,7 @@ import org.apache.activemq.artemis.logs.AssertionLoggerHandler;
 import org.apache.activemq.artemis.protocol.amqp.broker.AMQPMessagePersister;
 import org.apache.activemq.artemis.spi.core.protocol.MessagePersister;
 import org.apache.activemq.artemis.tests.unit.core.journal.impl.fakes.FakeSequentialFileFactory;
-import org.apache.activemq.artemis.tests.unit.core.postoffice.impl.FakeQueue;
+import org.apache.activemq.artemis.tests.unit.core.postoffice.impl.fakes.FakeQueue;
 import org.apache.activemq.artemis.tests.unit.util.FakePagingManager;
 import org.apache.activemq.artemis.tests.util.ActiveMQTestBase;
 import org.apache.activemq.artemis.utils.ActiveMQThreadFactory;
@@ -323,7 +323,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
             debugPage(storeImpl, subscription, storeImpl.getFirstPage(), storeImpl.getCurrentWritingPage());
          }
 
-         PageCursorProviderAccessor.cleanup(storeImpl.getCursorProvider());
+         PageCursorProviderTestAccessor.cleanup(storeImpl.getCursorProvider());
 
          Assert.assertTrue(storeImpl.isPaging());
 
@@ -350,7 +350,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
 
          Assert.assertEquals(3, storeImpl.getNumberOfPages());
 
-         PageCursorProviderAccessor.cleanup(storeImpl.getCursorProvider());
+         PageCursorProviderTestAccessor.cleanup(storeImpl.getCursorProvider());
 
          Assert.assertFalse(storeImpl.isPaging());
 
@@ -441,7 +441,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
 
          Assert.assertEquals(7, messagesRead);
 
-         PageCursorProviderAccessor.cleanup(storeImpl.getCursorProvider());
+         PageCursorProviderTestAccessor.cleanup(storeImpl.getCursorProvider());
 
          Assert.assertEquals(10, factory.listFiles("page").size());
 
@@ -451,7 +451,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
 
          Assert.assertEquals(11, factory.listFiles("page").size());
 
-         PageCursorProviderAccessor.cleanup(storeImpl.getCursorProvider());
+         PageCursorProviderTestAccessor.cleanup(storeImpl.getCursorProvider());
 
          Assert.assertEquals(10, factory.listFiles("page").size());
 
@@ -476,7 +476,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
 
          Assert.assertEquals(90, messagesRead);
 
-         PageCursorProviderAccessor.cleanup(storeImpl.getCursorProvider());
+         PageCursorProviderTestAccessor.cleanup(storeImpl.getCursorProvider());
 
          Assert.assertFalse(storeImpl.isPaging());
       }
@@ -1252,11 +1252,12 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
          };
          store.applySetting(new AddressSettings().setMaxSizeBytes(1000).setAddressFullMessagePolicy(AddressFullMessagePolicy.BLOCK));
          store.addSize(100);
-         store.checkMemory(trackMemoryChecks);
+         store.flushExecutors();
+         store.checkMemory(trackMemoryChecks, null);
          assertEquals(1, calls.get());
 
          store.block();
-         store.checkMemory(trackMemoryChecks);
+         store.checkMemory(trackMemoryChecks, null);
          assertEquals(1, calls.get());
 
          store.unblock();
@@ -1270,9 +1271,10 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
 
          store.addSize(900);
          assertEquals(100, store.getAddressLimitPercent());
+         store.flushExecutors();
 
          // address full blocks
-         store.checkMemory(trackMemoryChecks);
+         store.checkMemory(trackMemoryChecks, null);
          assertEquals(2, calls.get());
 
          store.block();
@@ -1285,6 +1287,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
          assertEquals(2, calls.get());
 
          store.unblock();
+         store.flushExecutors();
 
          // now released
          assertTrue(Wait.waitFor(new Wait.Condition() {
@@ -1300,7 +1303,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
          store.addSize(900);
          assertEquals(100, store.getAddressLimitPercent());
 
-         store.checkMemory(trackMemoryChecks);
+         store.checkMemory(trackMemoryChecks, null);
          assertEquals("no change", 3, calls.get());
          assertEquals("no change to be sure to be sure!", 3, calls.get());
 
@@ -1493,7 +1496,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
          // Do an initial check
          final CountingRunnable trackMemoryCheck1 = new CountingRunnable();
          assertEquals(0, trackMemoryCheck1.getCount());
-         store.checkMemory(trackMemoryCheck1);
+         store.checkMemory(trackMemoryCheck1, null);
          assertEquals(1, trackMemoryCheck1.getCount());
 
          // Do another check, this time indicate the disk is full during the first couple
@@ -1501,7 +1504,7 @@ public class PagingStoreImplTest extends ActiveMQTestBase {
          final CountingRunnable trackMemoryCheck2 = new CountingRunnable();
          Mockito.when(mockManager.isDiskFull()).thenReturn(true, true, false);
          assertEquals(0, trackMemoryCheck2.getCount());
-         store.checkMemory(trackMemoryCheck2);
+         store.checkMemory(trackMemoryCheck2, null);
          assertEquals(1, trackMemoryCheck2.getCount());
 
          // Now run the released memory checks. The task should NOT execute again, verify it doesnt.

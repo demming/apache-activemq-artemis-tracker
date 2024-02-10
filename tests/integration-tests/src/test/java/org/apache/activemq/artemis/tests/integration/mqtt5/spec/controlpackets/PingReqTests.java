@@ -29,10 +29,6 @@ import org.junit.Test;
 
 public class PingReqTests  extends MQTT5TestSupport {
 
-   public PingReqTests(String protocol) {
-      super(protocol);
-   }
-
    /*
     * [MQTT-3.12.4-1] The Server MUST send a PINGRESP packet in response to a PINGREQ packet.
     */
